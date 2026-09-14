@@ -1,0 +1,191 @@
+{
+  "name": "typora-md-wysiwyg",
+  "displayName": "Typora Markdown (WYSIWYG)",
+  "description": "Typora-like same-tab live typesetting WYSIWYG markdown editor for VS Code, powered by Vditor. Renders and lets you edit markdown in place (no split preview) with theme switching.",
+  "version": "0.1.0",
+  "publisher": "typoramd-local",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "wysiwyg",
+    "typora",
+    "editor",
+    "preview",
+    "vditor"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onCustomEditor:typoraMd.editor",
+    "onCommand:typoraMd.openWysiwyg",
+    "onCommand:typoraMd.openAsText",
+    "onCommand:typoraMd.setTheme",
+    "onLanguage:markdown"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "typoraMd.openWysiwyg",
+        "title": "Typora: Open Current File in WYSIWYG View",
+        "category": "Typora"
+      },
+      {
+        "command": "typoraMd.openAsText",
+        "title": "Typora: Reopen as Markdown Source",
+        "category": "Typora"
+      },
+      {
+        "command": "typoraMd.setTheme",
+        "title": "Typora: Switch Editor Theme",
+        "category": "Typora"
+      },
+      {
+        "command": "typoraMd.toggleToolbar",
+        "title": "Typora: Toggle Formatting Toolbar",
+        "category": "Typora"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceLangId == markdown",
+          "command": "typoraMd.openWysiwyg",
+          "group": "1_typora"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "typoraMd.openAsText",
+          "group": "1_typora"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "when": "resourceLangId == markdown",
+          "command": "typoraMd.openWysiwyg",
+          "group": "1_typora"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "typoraMd.openAsText",
+          "group": "1_typora"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceLangId == markdown && editorTextFocus",
+          "command": "typoraMd.openWysiwyg",
+          "group": "1_typora"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "typoraMd.editor",
+        "displayName": "Typora Markdown (WYSIWYG)",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          },
+          {
+            "filenamePattern": "*.mdown"
+          },
+          {
+            "filenamePattern": "*.mkd"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "configuration": {
+      "title": "Typora Markdown (WYSIWYG)",
+      "properties": {
+        "typoraMd.autoOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open markdown files in the same-tab Typora-style WYSIWYG editor automatically. Turn off to keep the normal text editor and open the WYSIWYG view manually.",
+          "markdownDescription": "Open markdown files in the same-tab Typora-style WYSIWYG editor automatically. Turn off to keep the normal text editor and open the WYSIWYG view manually."
+        },
+        "typoraMd.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "default": "auto",
+          "description": "Editor theme. 'auto' follows the active VS Code color theme (light/dark).",
+          "markdownDescription": "Editor theme. `auto` follows the active VS Code color theme (light/dark). Use the command **Typora: Switch Editor Theme** to change it quickly."
+        },
+        "typoraMd.mode": {
+          "type": "string",
+          "enum": [
+            "ir",
+            "wysiwyg"
+          ],
+          "default": "ir",
+          "description": "Editing mode. 'ir' (instant rendering, recommended) hides Markdown markers unless the line is active; 'wysiwyg' always hides the source syntax.",
+          "markdownDescription": "Editing mode. `ir` (instant rendering, recommended — closest to Typora and most stable) renders content live and only shows Markdown markers for the active line. `wysiwyg` fully hides the Markdown syntax."
+        },
+        "typoraMd.codeTheme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "github",
+            "github-dark"
+          ],
+          "default": "auto",
+          "description": "Syntax-highlighting theme for code blocks. 'auto' picks github in light mode and github-dark in dark mode.",
+          "markdownDescription": "Syntax-highlighting theme for code blocks. `auto` picks `github` in light mode and `github-dark` in dark mode."
+        },
+        "typoraMd.autoSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Save the markdown file automatically after each write-back (like Typora). When off, use Cmd/Ctrl+S to save.",
+          "markdownDescription": "Save the markdown file automatically after each write-back (like Typora). When off, press `Cmd/Ctrl+S` to save."
+        },
+        "typoraMd.showToolbar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the compact formatting toolbar at the top of the WYSIWYG editor."
+        },
+        "typoraMd.syncDelayMs": {
+          "type": "number",
+          "default": 250,
+          "minimum": 50,
+          "maximum": 2000,
+          "description": "Debounce delay (ms) for writing edits back to the markdown file."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "typoraMd.openWysiwyg",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "editorLangId == markdown && resourceExtname == .md"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "package": "vsce package --no-dependencies",
+    "lint": "tsc -p ./ --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^3.2.0"
+  }
+}

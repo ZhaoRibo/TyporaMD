@@ -1,0 +1,446 @@
+/*
+ * wysiwyg.css — Typora-like presentation for the Vditor editing surface.
+ *
+ * Loaded after Vditor's own index.css / content-theme css. It turns the raw
+ * Vditor editor into a centred "paper" document column (as Typora renders) and
+ * supplies theme variables that follow VS Code (auto/light/dark).
+ */
+
+/* ---------------------------------------------------------------------------
+ * 1. Theme variables
+ * ------------------------------------------------------------------------- */
+:root,
+body {
+  --tp-page: #edf0f3;
+  /* area outside the paper */
+  --tp-paper: #ffffff;
+  /* the document paper */
+  --tp-text: #1f2328;
+  --tp-heading: #1a1f24;
+  --tp-muted: #656d76;
+  --tp-faint: #a0a8b1;
+  --tp-border: #e6e9ed;
+  --tp-accent: #0a6fbf;
+  --tp-inline-bg: rgba(175, 184, 193, 0.22);
+  --tp-code-block-bg: #f6f8fa;
+  --tp-code-block-border: #e6e9ed;
+  --tp-code-text: #24292e;
+  --tp-quote-border: #d3d9df;
+  --tp-quote-text: #5b6570;
+  --tp-hr: #e0e4ea;
+  --tp-table-border: #d7dce3;
+  --tp-table-head-bg: #f3f5f7;
+  --tp-table-stripe: #fafbfc;
+  --tp-selection: rgba(10, 111, 191, 0.22);
+  --tp-caret: #1f2328;
+  --tp-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+body[data-tp-theme="dark"] {
+  --tp-page: #15181c;
+  --tp-paper: #1d2229;
+  --tp-text: #d7dbdf;
+  --tp-heading: #eef1f4;
+  --tp-muted: #9aa4ae;
+  --tp-faint: #6a747f;
+  --tp-border: #2c333d;
+  --tp-accent: #4da6ff;
+  --tp-inline-bg: rgba(110, 118, 129, 0.3);
+  --tp-code-block-bg: #171b20;
+  --tp-code-block-border: #2c333d;
+  --tp-code-text: #d7dbdf;
+  --tp-quote-border: #3a4250;
+  --tp-quote-text: #a7b0bb;
+  --tp-hr: #333a45;
+  --tp-table-border: #39414d;
+  --tp-table-head-bg: #262c35;
+  --tp-table-stripe: #21272f;
+  --tp-selection: rgba(77, 166, 255, 0.3);
+  --tp-caret: #d7dbdf;
+  --tp-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. Page / paper layout
+ * ------------------------------------------------------------------------- */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--tp-page);
+}
+
+.vditor {
+  border: 0;
+  border-radius: 0;
+  background-color: var(--tp-page);
+}
+
+/* Keep Vditor's chrome colours in sync with the active paper theme. */
+body[data-tp-theme="light"] .vditor {
+  --border-color: var(--tp-border);
+  --panel-background-color: var(--tp-paper);
+  --panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --toolbar-background-color: #f7f8fa;
+  --toolbar-icon-color: var(--tp-muted);
+  --toolbar-icon-hover-color: var(--tp-accent);
+  --textarea-background-color: var(--tp-paper);
+  --textarea-text-color: var(--tp-text);
+  --heading-border-color: var(--tp-border);
+  --blockquote-color: var(--tp-quote-text);
+  --ir-heading-color: var(--tp-accent);
+  --ir-bi-color: var(--tp-accent);
+  --ir-link-color: var(--tp-accent);
+  --ir-bracket-color: var(--tp-faint);
+  --ir-title-color: var(--tp-muted);
+  --ir-paren-color: var(--tp-muted);
+}
+
+body[data-tp-theme="dark"] .vditor {
+  --border-color: var(--tp-border);
+  --second-color: rgba(185, 185, 185, 0.32);
+  --panel-background-color: #262c35;
+  --panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --toolbar-background-color: #191d22;
+  --toolbar-icon-color: #b6bfc8;
+  --toolbar-icon-hover-color: var(--tp-accent);
+  --textarea-background-color: var(--tp-paper);
+  --textarea-text-color: var(--tp-text);
+  --heading-border-color: var(--tp-border);
+  --blockquote-color: var(--tp-quote-text);
+  --ir-heading-color: var(--tp-accent);
+  --ir-bi-color: var(--tp-accent);
+  --ir-link-color: var(--tp-accent);
+  --ir-bracket-color: var(--tp-faint);
+  --ir-title-color: var(--tp-muted);
+  --ir-paren-color: var(--tp-muted);
+}
+
+/* Toolbar: convert Vditor's float-based row into flex and spread the buttons
+   evenly across the full width (Vditor piles them on the left by default). */
+.vditor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  background-color: transparent;
+  border-bottom: 1px solid var(--tp-border);
+  padding: 0 6px;
+}
+
+.vditor .vditor-toolbar__item {
+  float: none;
+  flex: 1 1 0;
+  min-width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vditor .vditor-toolbar__item .vditor-tooltipped {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.vditor .vditor-toolbar__divider {
+  float: none;
+  flex: 0 0 auto;
+}
+
+/* Disable Vditor's tiny built-in tooltip; we render our own richer one. */
+.vditor .vditor-tooltipped::after {
+  display: none !important;
+}
+
+/* Custom toolbar help tooltip (populated by media/main.js on hover). */
+#tp-tip {
+  position: fixed;
+  z-index: 1000001;
+  display: none;
+  pointer-events: none;
+  box-sizing: border-box;
+  max-width: 320px;
+  padding: 7px 10px;
+  border: 1px solid var(--tp-border);
+  border-radius: 6px;
+  background-color: var(--tp-paper);
+  color: var(--tp-text);
+  box-shadow: var(--tp-shadow);
+  font: 12px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+#tp-tip .tp-tip-name {
+  font-weight: 700;
+  margin-bottom: 1px;
+}
+
+#tp-tip .tp-tip-k {
+  color: var(--tp-muted);
+}
+
+#tp-tip .tp-tip-code {
+  font-family: "SF Mono", "JetBrains Mono", Consolas, Menlo, monospace;
+}
+
+/* Editing scroll area fills the space and IS the paper: the document uses the
+   full editor width (no narrow floating card with wide gutters). */
+.vditor-content {
+  background-color: var(--tp-paper);
+}
+
+.vditor .vditor-ir,
+.vditor .vditor-wysiwyg {
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: var(--tp-paper);
+  scrollbar-gutter: stable;
+}
+
+/* The real contenteditable element in both IR and WYSIWYG modes. */
+.vditor .vditor-ir pre.vditor-reset,
+.vditor .vditor-wysiwyg pre.vditor-reset {
+  width: 100%;
+  max-width: none;
+  height: auto !important;
+  margin: 0 auto;
+  padding: 24px clamp(24px, 5vw, 64px) 120px;
+  overflow: visible !important;
+  box-sizing: border-box;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* Hide the toolbar entirely (configurable). */
+body.tp-no-toolbar .vditor-toolbar {
+  display: none;
+}
+
+/* Cursor / selection inside the document. */
+.vditor .vditor-reset:focus {
+  caret-color: var(--tp-caret);
+}
+
+.vditor .vditor-reset ::selection,
+.vditor .vditor-reset::selection {
+  background-color: var(--tp-selection);
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. Typography (Typora-like)
+ * ------------------------------------------------------------------------- */
+.vditor .vditor-ir pre.vditor-reset,
+.vditor .vditor-wysiwyg pre.vditor-reset,
+.vditor .vditor-ir pre.vditor-reset>*,
+.vditor .vditor-wysiwyg pre.vditor-reset>* {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Editing text colour / metrics (both modes). */
+.vditor .vditor-ir pre.vditor-reset,
+.vditor .vditor-wysiwyg pre.vditor-reset {
+  color: var(--tp-text);
+  font-size: 16px;
+  line-height: 1.8;
+  word-wrap: break-word;
+}
+
+/* IR only: syntax markers live inline, so text must wrap inside each block. */
+.vditor .vditor-ir pre.vditor-reset {
+  white-space: normal;
+}
+
+/* Remove the GitHub-style underline under headings for a cleaner Typora look. */
+.vditor pre.vditor-reset h1,
+.vditor pre.vditor-reset h2 {
+  padding-bottom: 0.3em;
+  border-bottom: none;
+}
+
+.vditor pre.vditor-reset h1,
+.vditor pre.vditor-reset h2,
+.vditor pre.vditor-reset h3,
+.vditor pre.vditor-reset h4,
+.vditor pre.vditor-reset h5,
+.vditor pre.vditor-reset h6 {
+  color: var(--tp-heading);
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-family: inherit;
+}
+
+.vditor pre.vditor-reset h1 {
+  font-size: 2em;
+}
+
+.vditor pre.vditor-reset h2 {
+  font-size: 1.6em;
+}
+
+.vditor pre.vditor-reset h3 {
+  font-size: 1.35em;
+}
+
+.vditor pre.vditor-reset h4 {
+  font-size: 1.15em;
+}
+
+.vditor pre.vditor-reset h5 {
+  font-size: 1em;
+}
+
+.vditor pre.vditor-reset h6 {
+  font-size: 0.92em;
+  color: var(--tp-muted);
+}
+
+.vditor pre.vditor-reset p {
+  margin: 0.9em 0;
+}
+
+.vditor pre.vditor-reset a {
+  color: var(--tp-accent);
+  text-decoration: none;
+}
+
+.vditor pre.vditor-reset a:hover {
+  text-decoration: underline;
+}
+
+.vditor pre.vditor-reset strong {
+  font-weight: 600;
+}
+
+.vditor pre.vditor-reset del {
+  color: var(--tp-muted);
+}
+
+/* Inline code — IR only: WYSIWYG code blocks are bare `code` elements, so a
+   shared rule would wrongly tint the code-block editing area there. */
+.vditor .vditor-ir pre.vditor-reset code:not(.hljs):not(.highlight-chroma) {
+  background-color: var(--tp-inline-bg);
+  color: var(--tp-code-text);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: "SF Mono", "JetBrains Mono", Consolas, "Liberation Mono", Menlo,
+    monospace;
+}
+
+/* Block quotes */
+.vditor pre.vditor-reset blockquote {
+  color: var(--tp-quote-text);
+  border-left: 4px solid var(--tp-quote-border);
+  background-color: transparent;
+  padding: 0 1em;
+  margin: 1em 0;
+}
+
+.vditor pre.vditor-reset blockquote> :first-child {
+  margin-top: 0.3em;
+}
+
+.vditor pre.vditor-reset blockquote> :last-child {
+  margin-bottom: 0.3em;
+}
+
+/* Lists */
+.vditor pre.vditor-reset ul,
+.vditor pre.vditor-reset ol {
+  padding-left: 1.9em;
+  margin: 0.6em 0;
+}
+
+.vditor pre.vditor-reset li {
+  margin: 0.15em 0;
+}
+
+.vditor pre.vditor-reset li p {
+  margin: 0.2em 0;
+}
+
+/* Horizontal rule */
+.vditor pre.vditor-reset hr {
+  background-color: var(--tp-hr);
+  height: 1px;
+  border: 0;
+  margin: 1.6em 0;
+}
+
+/* Images */
+.vditor pre.vditor-reset img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. Tables
+ * ------------------------------------------------------------------------- */
+.vditor pre.vditor-reset table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: 1em 0;
+  display: table;
+  width: auto;
+  max-width: 100%;
+}
+
+.vditor pre.vditor-reset th,
+.vditor pre.vditor-reset td {
+  border: 1px solid var(--tp-table-border);
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.vditor pre.vditor-reset th {
+  background-color: var(--tp-table-head-bg);
+  font-weight: 600;
+}
+
+.vditor pre.vditor-reset tbody tr:nth-child(2n) {
+  background-color: var(--tp-table-stripe);
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. Code blocks (IR DOM: a fenced code block is a nested pre > code.hljs).
+ *    WYSIWYG keeps Vditor's own .vditor-wysiwyg__pre / __preview styling.
+ * ------------------------------------------------------------------------- */
+.vditor .vditor-ir pre.vditor-reset pre {
+  background-color: var(--tp-code-block-bg);
+  border: 1px solid var(--tp-code-block-border);
+  border-radius: 6px;
+  padding: 0.9em 1.1em;
+  overflow: auto;
+}
+
+.vditor .vditor-ir pre.vditor-reset pre code.hljs,
+.vditor .vditor-ir pre.vditor-reset pre code.highlight-chroma {
+  background-color: transparent;
+  font-size: 0.9em;
+  line-height: 1.6;
+  color: var(--tp-code-text);
+}
+
+/* Code blocks in WYSIWYG get the same colour story via the block containers. */
+.vditor .vditor-wysiwyg pre.vditor-reset .vditor-wysiwyg__pre,
+.vditor .vditor-wysiwyg pre.vditor-reset .vditor-wysiwyg__preview {
+  background-color: var(--tp-code-block-bg);
+  border: 1px solid var(--tp-code-block-border);
+  border-radius: 6px;
+}
+
+.vditor .vditor-wysiwyg pre.vditor-reset .vditor-wysiwyg__preview code.hljs {
+  background-color: transparent;
+  font-size: 0.9em;
+  line-height: 1.6;
+  color: var(--tp-code-text);
+}
