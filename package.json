@@ -169,6 +169,12 @@
           "default": true,
           "description": "Show the compact formatting toolbar at the top of the WYSIWYG editor."
         },
+        "typoraMd.imageDir": {
+          "type": "string",
+          "default": "media",
+          "description": "Folder (relative to the markdown file) where images pasted into the editor are saved. Use \".\" to save them next to the markdown file.",
+          "markdownDescription": "粘贴图片的保存目录（相对当前 Markdown 文件所在目录）。默认 `media`；填 `.` 表示与文档同目录。"
+        },
         "typoraMd.syncDelayMs": {
           "type": "number",
           "default": 250,

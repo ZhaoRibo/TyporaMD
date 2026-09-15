@@ -30,6 +30,7 @@
   - GFM：标题、加粗/斜体/删除线、列表/有序/任务列表、引用、分割线、链接、表格、行内代码、代码块（带语法高亮）、行内/块级 KaTeX 公式。
   - 支持中文 IME 输入（组合输入期间不会触发错误的回写）。
   - 同目录相对路径图片可直接显示；`Cmd/Ctrl+点击` 链接可打开文件/网址。
+  - **粘贴图片自动存盘**：直接粘贴剪贴板里的图片，会自动保存到文档旁的目录（默认 `media/`，可配置），并在文档中插入相对路径引用——不会把超长的 base64 塞进文档。
 
 ---
 
@@ -100,7 +101,8 @@ npm run watch          # 监听编译
      - `Typora: Open Current File in WYSIWYG View` —— 当前文件切到 WYSIWYG 视图（快捷键 `Cmd/Ctrl+Shift+T`）；
      - `Typora: Reopen as Markdown Source` —— 切回普通源码编辑（此后该文件不会被自动打开成 WYSIWYG）。
 3. **主题切换**：命令面板 `Typora: Switch Editor Theme`（循环 Auto → Light → Dark），或改 `typoraMd.theme` 配置；颜色主题改变时明暗也会实时跟随。
-4. **保存**：编辑会自动回写文档（文档会显示“未保存”标记，属正常现象）；`Cmd/Ctrl+S` 保存到磁盘。若想完全像 Typora 自动保存，开启 `typoraMd.autoSave`。
+4. **插入图片**：直接**粘贴**剪贴板里的图片（截图等），扩展会自动把图片保存到文档旁的目录（默认 `media/`，可用 `typoraMd.imageDir` 修改），并在插入位置写入相对路径引用，例如 `![](media/image-20260915-153012.png)`。
+5. **保存**：编辑会自动回写文档（文档会显示“未保存”标记，属正常现象）；`Cmd/Ctrl+S` 保存到磁盘。若想完全像 Typora 自动保存，开启 `typoraMd.autoSave`。
 
 ---
 
@@ -114,6 +116,7 @@ npm run watch          # 监听编译
 | `typoraMd.theme`       | `auto`  | 编辑器主题：`auto` / `light` / `dark`         |
 | `typoraMd.codeTheme`   | `auto`  | 代码块高亮：`auto` / `github` / `github-dark` |
 | `typoraMd.showToolbar` | `true`  | 是否显示顶部格式工具栏                        |
+| `typoraMd.imageDir`    | `media` | 粘贴图片的保存目录（相对文档；`.` = 同目录）  |
 | `typoraMd.autoSave`    | `false` | 每次回写后自动保存到磁盘                      |
 | `typoraMd.syncDelayMs` | `250`   | 回写到文件的防抖毫秒数                        |
 
@@ -129,7 +132,7 @@ TyporaMD/
 │  ├─ extension.ts       # 激活、自动打开、命令、上下文菜单
 │  └─ editor.ts          # CustomTextEditor 宿主：webview、CSP、回写、主题/配置/外部变更
 ├─ media/
-│  ├─ main.js            # webview 前端：初始化 Vditor、回写、主题、IME、图片/链接、工具栏提示
+│  ├─ main.js            # webview 前端：初始化 Vditor、回写、主题、IME、图片/链接、粘贴存盘、工具栏提示
 │  ├─ wysiwyg.css        # 满宽纸面排版、明/暗主题、工具栏布局与悬停提示
 │  └─ vditor/            # 内置的 Vditor 4（已裁剪，含 LICENSE）
 └─ out/                  # 编译产物（tsc 输出，不纳入版本控制）
@@ -139,8 +142,9 @@ TyporaMD/
 
 ## 已知限制
 
-- Vditor 4 没有独立的“插入图片”工具栏按钮（其 `image` 工具已失效，已移除）；插入图片请直接写 Markdown、粘贴，或引用 markdown 同目录下的相对路径文件。
-- 当前不支持通过工具栏插入上传图片/附件（webview 中上传需要额外的文件读取能力，未内置）。
+- 工具栏没有独立的“插入图片”按钮（Vditor 4 的 `image` 工具已失效，已移除）；但**直接粘贴图片即可**——会自动保存到 `typoraMd.imageDir`（默认 `media/`）并插入相对路径。
+- 仅支持**剪贴板图片**粘贴保存；暂不支持通过工具栏选择本地文件上传附件。
+- 图片保存目录名建议不含空格（含空格时 Markdown 链接可能需转义）。
 - `wysiwyg` 模式处于“可用但 IR 更成熟”的状态；默认 `ir` 体验最接近 Typora 且最稳定。
 - 编辑区写入会以整个文档为单位规范化内容（例如统一行尾），与 Typora 行为一致；协作/多端同时修改时以最后一次写入为准。
 

@@ -89,6 +89,54 @@ async function openLink(
   }
 }
 
+/** File extension for a pasted image, derived from its data-URL mime type. */
+function imageExtFromMime(mime: string): string {
+  switch (mime) {
+    case 'image/jpeg':
+    case 'image/jpg':
+      return 'jpg';
+    case 'image/svg+xml':
+      return 'svg';
+    case 'image/webp':
+      return 'webp';
+    case 'image/gif':
+      return 'gif';
+    case 'image/bmp':
+      return 'bmp';
+    case 'image/png':
+      return 'png';
+    default: {
+      const sub = mime.indexOf('/') >= 0 ? mime.slice(mime.indexOf('/') + 1) : 'png';
+      return sub.replace(/[^a-z0-9]/gi, '') || 'png';
+    }
+  }
+}
+
+/** `image-20260915-153012.png` — timestamp of the paste moment. */
+function pastedImageName(ext: string): string {
+  const d = new Date();
+  const p = (n: number): string => (n < 10 ? `0${n}` : String(n));
+  return (
+    `image-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-` +
+    `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.${ext}`
+  );
+}
+
+/** Decode a `data:` URL into raw bytes (base64 and percent-encoded forms). */
+function decodeDataUrl(dataUrl: string): { mime: string; bytes: Uint8Array } {
+  const match = /^data:([^;,]+)(;base64)?,([\s\S]*)$/i.exec(dataUrl || '');
+  if (!match) {
+    throw new Error('无法识别的图片数据（不是 data: URL）');
+  }
+  const mime = match[1].toLowerCase();
+  const body = match[3] || '';
+  const bytes = match[2] ? Buffer.from(body, 'base64') : Buffer.from(decodeURIComponent(body), 'utf8');
+  if (bytes.length === 0) {
+    throw new Error('图片数据为空');
+  }
+  return { mime, bytes };
+}
+
 export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly output: vscode.OutputChannel;
 
@@ -102,6 +150,43 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
 
   private log(msg: string): void {
     this.output.appendLine(msg);
+  }
+
+  /**
+   * Save a pasted image next to the markdown file (sub-folder from
+   * `typoraMd.imageDir`, default `media`; `.` means the document folder) and
+   * return the path relative to the document, with forward slashes so it is a
+   * valid markdown image target.
+   */
+  private async writePastedImage(document: vscode.TextDocument, dataUrl: string): Promise<string> {
+    if (document.uri.scheme !== 'file') {
+      throw new Error('仅支持保存到本地文件');
+    }
+    const { mime, bytes } = decodeDataUrl(dataUrl);
+    const ext = imageExtFromMime(mime);
+    const docDir = path.dirname(document.uri.fsPath);
+    const rawDir = vscode.workspace.getConfiguration('typoraMd').get<string>('imageDir', 'media') ?? '';
+    const dirSetting = rawDir.trim();
+    const targetDir = !dirSetting || dirSetting === '.' ? docDir : path.resolve(docDir, dirSetting);
+    await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetDir));
+
+    // Same-second pastes must not overwrite each other.
+    let name = pastedImageName(ext);
+    const base = name.replace(/\.[^.]+$/, '');
+    for (let i = 1; ; i++) {
+      try {
+        await vscode.workspace.fs.stat(vscode.Uri.file(path.join(targetDir, name)));
+      } catch {
+        break; // name is free
+      }
+      name = `${base}-${i}.${ext}`;
+    }
+
+    const absPath = path.join(targetDir, name);
+    await vscode.workspace.fs.writeFile(vscode.Uri.file(absPath), bytes);
+    const relPath = path.relative(docDir, absPath).split(path.sep).join('/');
+    this.log(`[host] pasted image saved: ${relPath} (${bytes.length} bytes)`);
+    return relPath;
   }
 
   async resolveCustomTextEditor(
@@ -133,7 +218,9 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
     let docDirWebview = '';
     const localRoots: vscode.Uri[] = [extRoot];
     if (document.uri.scheme === 'file') {
-      docDirFs = path.dirname(document.uri.fsPath);
+      // Normalise to forward slashes so the webview's path handling is the same
+      // on Windows as on macOS/Linux.
+      docDirFs = path.dirname(document.uri.fsPath).split(path.sep).join('/');
       docDirWebview = webview.asWebviewUri(vscode.Uri.file(docDirFs)).toString();
       localRoots.push(vscode.Uri.file(docDirFs));
     }
@@ -187,6 +274,25 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
         autoSave: cfgNow.get<boolean>('autoSave', false),
       };
       post({ type: 'init', payload });
+    };
+
+    // A pasted image arrives as a data: URL. Save it next to the markdown file
+    // and reply with the relative path, so the webview can insert a clean image
+    // reference instead of Vditor's default multi-megabyte base64 inline.
+    const savePastedImage = async (msg: { id?: unknown; dataUrl?: unknown }): Promise<void> => {
+      const id = typeof msg.id === 'number' ? msg.id : 0;
+      try {
+        const relPath = await this.writePastedImage(
+          document,
+          typeof msg.dataUrl === 'string' ? msg.dataUrl : ''
+        );
+        post({ type: 'imageSaved', id, relPath });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.log(`[host] saveImage failed: ${message}`);
+        post({ type: 'imageError', id, message });
+        void vscode.window.showErrorMessage(`[Typora] 粘贴图片保存失败：${message}`);
+      }
     };
 
     // Write-through of the whole document (debounced) so the file always matches
@@ -262,6 +368,9 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
                 await document.save();
               }
             })();
+            break;
+          case 'saveImage':
+            void savePastedImage(msg as { id?: unknown; dataUrl?: unknown });
             break;
           case 'openLink':
             void openLink(document, typeof msg.href === 'string' ? msg.href : '', webviewPanel.viewColumn);

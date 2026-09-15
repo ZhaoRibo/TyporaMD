@@ -156,22 +156,44 @@
     var resolved = img.src || src;
     if (/^vscode-webview-resource:|^data:/i.test(resolved)) { return; }
 
-    var rel = src;
-    var base = payload.docDirFs.replace(/\/$/, '');
-    if (rel.charAt(0) === '/') { rel = rel.slice(1); base = ''; }
-    var joined = (base ? base + '/' : '') + rel;
-    var out = [];
-    var parts = joined.split('/');
-    for (var i = 0; i < parts.length; i++) {
-      var p = parts[i];
-      if (p === '.' || p === '') { continue; }
-      if (p === '..') { out.pop(); } else { out.push(p); }
+    // Resolve the image path (absolute, or relative to the document folder) into
+    // clean segments — dropping "." and collapsing "..".
+    var baseSegs = splitSegments('', payload.docDirFs);
+    var absSegs = splitSegments(payload.docDirFs, src);
+    // The webview may only read the document folder (localResourceRoots), so the
+    // image has to live inside it. Note `asWebviewUri(docDir)` is a *full*
+    // resource URL that already contains the folder path — appending another
+    // absolute path would duplicate it (the old bug) — so append the path
+    // relative to the document folder instead.
+    if (absSegs.length <= baseSegs.length) { return; }
+    var insideFolder = true;
+    for (var b = 0; b < baseSegs.length; b++) {
+      if (absSegs[b] !== baseSegs[b]) { insideFolder = false; break; }
     }
-    var norm = out.map(encodeURIComponent).join('/');
-    if (!norm) { return; }
+    if (!insideFolder) { return; }
+    var encoded = absSegs.slice(baseSegs.length).map(encodeURIComponent).join('/');
+    if (!encoded) { return; }
     img.__typoraLocal = true;
     img.dataset.tpLocal = '1';
-    img.setAttribute('src', payload.docDirWebview.replace(/\/$/, '') + '/' + norm);
+    img.setAttribute('src', payload.docDirWebview.replace(/\/$/, '') + '/' + encoded);
+  }
+
+  // Resolve `p` (absolute, or relative to `base`) into clean path segments.
+  function splitSegments(base, p) {
+    var segs = [];
+    if (base && p.charAt(0) !== '/') {
+      var bs = base.split('/');
+      for (var i = 0; i < bs.length; i++) {
+        if (bs[i] && bs[i] !== '.') { segs.push(bs[i]); }
+      }
+    }
+    var ps = p.split('/');
+    for (var j = 0; j < ps.length; j++) {
+      var s = ps[j];
+      if (!s || s === '.') { continue; }
+      if (s === '..') { segs.pop(); } else { segs.push(s); }
+    }
+    return segs;
   }
 
   function handleLinkClick(e) {
@@ -186,6 +208,54 @@
     e.preventDefault();
     e.stopPropagation();
     vscode.postMessage({ type: 'openLink', href: href });
+  }
+
+  // ---- paste image handling -----------------------------------------------
+  // Vditor's default paste inlines the image as a base64 data: URL, turning a
+  // screenshot into hundreds of thousands of characters inside the markdown
+  // file. We intercept image pastes (capture phase, before Vditor), hand the
+  // bytes to the host to save next to the document, then insert a clean
+  // relative-path image reference.
+  var imageSeq = 0;
+
+  function clipboardImage(e) {
+    var dt = e.clipboardData;
+    if (!dt) { return null; }
+    var i;
+    var files = dt.files || [];
+    for (i = 0; i < files.length; i++) {
+      if (files[i] && files[i].type && files[i].type.indexOf('image/') === 0) { return files[i]; }
+    }
+    var items = dt.items || [];
+    for (i = 0; i < items.length; i++) {
+      if (items[i] && items[i].kind === 'file' &&
+        items[i].type && items[i].type.indexOf('image/') === 0) {
+        return items[i].getAsFile();
+      }
+    }
+    return null;
+  }
+
+  function onImagePaste(e) {
+    var file = clipboardImage(e);
+    if (!file) { return; } // text / code paste: keep Vditor's default handling
+    e.preventDefault();
+    e.stopPropagation();
+    var id = ++imageSeq;
+    var reader = new FileReader();
+    reader.onload = function () {
+      vscode.postMessage({ type: 'saveImage', id: id, dataUrl: reader.result });
+    };
+    reader.onerror = function () {
+      console.error('[frontend] failed to read pasted image');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function bindImagePaste() {
+    if (!editorHost || editorHost.dataset.tpPaste === '1') { return; }
+    editorHost.dataset.tpPaste = '1';
+    editorHost.addEventListener('paste', onImagePaste, true);
   }
 
   var observer = null;
@@ -295,6 +365,7 @@
             setToolbarVisibility(config.showToolbar);
             startObserver();
             bindToolbarHelp();
+            bindImagePaste();
           } catch (err) {
             console.error('[frontend] post-init step failed: ' + (err && err.message ? err.message : String(err)));
           }
@@ -468,6 +539,20 @@
             applyConfig();
           }
         }
+        break;
+      case 'imageSaved': {
+        if (!vditor || typeof msg.relPath !== 'string') { break; }
+        try {
+          vditor.insertValue('![](' + msg.relPath + ')');
+          flushUpdate();
+        } catch (err) {
+          console.error('[frontend] insert saved image failed: ' +
+            (err && err.message ? err.message : String(err)));
+        }
+        break;
+      }
+      case 'imageError':
+        console.error('[frontend] save pasted image failed: ' + (msg.message || ''));
         break;
     }
   });
