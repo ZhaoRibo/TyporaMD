@@ -5,7 +5,11 @@
 在同一个标签页里直接排版、编辑、输入——不再需要像内置的 *Markdown Preview* 那样左右分栏预览，也不需要在“源码 ↔ 预览”之间来回切换。
 
 ![mode](https://img.shields.io/badge/mode-ir%20%2F%20wysiwyg-blue)
+![version](https://img.shields.io/badge/version-0.1.0--beta.1-orange)
 ![license](https://img.shields.io/badge/license-MIT-green)
+
+> **状态：Beta 预发布（`0.1.0-beta.1`）** —— 核心功能已可用，欢迎试用与反馈。
+> 快速安装：到 [Releases](https://github.com/ZhaoRibo/TyporaMD/releases) 下载 `.vsix`（详见下文「安装」）。
 
 ---
 
@@ -18,7 +22,7 @@
     - `wysiwyg`（纯所见即所得）：编辑区几乎看不到 Markdown 源码符号。
   - 写入回同步：你在编辑区做的修改会以整个文档为粒度**自动回写到磁盘文件**（防抖、IME 中文输入安全），配合 `Cmd/Ctrl+S` 保存（或开启 `autoSave` 像 Typora 一样自动保存）。
 - **排版主题**
-  - 居中“纸面”文档栏，宽屏下更接近 Typora 的阅读排版。
+  - 文档区**铺满整个编辑器宽度**（不再有狭窄的两侧留白），阅读与书写更接近 Typora 的观感。
   - 三档主题：`auto`（跟随 VS Code 当前配色自动切换明/暗）、`light`、`dark`；代码块语法高亮主题 `github` / `github-dark`。
   - 主题切换**实时生效**，无需重建编辑器。
   - 工具栏可一键隐藏（专注写作）。
@@ -50,15 +54,24 @@
 
 ## 安装
 
-### 从 VSIX 安装（推荐）
+### 方式一：下载发布包（推荐，普通用户）
+
+1. 打开本仓库的 [Releases](https://github.com/ZhaoRibo/TyporaMD/releases) 页面；
+2. 下载最新（预）发布里的 `typora-md-wysiwyg-0.1.0-beta.1.vsix`；
+3. VS Code 中：`扩展` 视图右上角 `...` → **从 VSIX 安装…** → 选择该文件；
+4. 若 VS Code 未自动重载，执行命令面板（`Cmd/Ctrl+Shift+P`）→ `Developer: Reload Window`。
+
+命令行安装（可选）：`code --install-extension typora-md-wysiwyg-0.1.0-beta.1.vsix`
+
+### 方式二：从源码自行构建
 
 ```bash
 npm install
-npm run compile        # 编译 TS -> out/
-npx vsce package       # 生成 typora-md-wysiwyg-0.1.0.vsix
+npm run compile                      # 编译 TS -> out/
+npx vsce package --no-dependencies    # 生成 typora-md-wysiwyg-0.1.0-beta.1.vsix
 ```
 
-然后在 VS Code 中：`扩展` 视图右上角 `...` → `从 VSIX 安装…`，选择生成的 `.vsix` 即可。
+再按上面的「从 VSIX 安装」步骤导入即可。构建需要 Node.js 18+ 与 VS Code ≥ 1.85。
 
 > ⚠️ **安装 / 升级后，请确保窗口已完成重新加载。**
 >
@@ -109,17 +122,17 @@ npm run watch          # 监听编译
 ## 项目结构
 
 ```
-vscode-md/
+TyporaMD/
 ├─ package.json          # 扩展清单：命令 / 菜单 / 配置 / 自定义编辑器
 ├─ tsconfig.json
 ├─ src/
 │  ├─ extension.ts       # 激活、自动打开、命令、上下文菜单
 │  └─ editor.ts          # CustomTextEditor 宿主：webview、CSP、回写、主题/配置/外部变更
 ├─ media/
-│  ├─ main.js            # webview 前端：初始化 Vditor、回写、主题、IME、图片/链接
-│  ├─ wysiwyg.css        # Typora 式纸面排版与主题变量（明/暗）
+│  ├─ main.js            # webview 前端：初始化 Vditor、回写、主题、IME、图片/链接、工具栏提示
+│  ├─ wysiwyg.css        # 满宽纸面排版、明/暗主题、工具栏布局与悬停提示
 │  └─ vditor/            # 内置的 Vditor 4（已裁剪，含 LICENSE）
-└─ out/                  # 编译产物（tsc 输出）
+└─ out/                  # 编译产物（tsc 输出，不纳入版本控制）
 ```
 
 ---
@@ -130,6 +143,14 @@ vscode-md/
 - 当前不支持通过工具栏插入上传图片/附件（webview 中上传需要额外的文件读取能力，未内置）。
 - `wysiwyg` 模式处于“可用但 IR 更成熟”的状态；默认 `ir` 体验最接近 Typora 且最稳定。
 - 编辑区写入会以整个文档为单位规范化内容（例如统一行尾），与 Typora 行为一致；协作/多端同时修改时以最后一次写入为准。
+
+---
+
+## 反馈与贡献
+
+- **问题 / 建议**：欢迎到 [Issues](https://github.com/ZhaoRibo/TyporaMD/issues) 反馈，请附上 VS Code 版本、扩展版本与复现步骤。
+- **排障提示**：安装 / 升级 VSIX 后若出现**空白页、界面卡住、反复弹出新标签**等异常，先执行命令面板 →
+  `Developer: Reload Window`；仍无法解决时，打开菜单「查看 → 输出」，在下拉框选择 **Typora Markdown** 查看诊断日志。
 
 ---
 

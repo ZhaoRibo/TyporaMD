@@ -2,10 +2,22 @@
   "name": "typora-md-wysiwyg",
   "displayName": "Typora Markdown (WYSIWYG)",
   "description": "Typora-like same-tab live typesetting WYSIWYG markdown editor for VS Code, powered by Vditor. Renders and lets you edit markdown in place (no split preview) with theme switching.",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "publisher": "typoramd-local",
   "private": true,
   "license": "MIT",
+  "author": {
+    "name": "ZhaoRibo",
+    "url": "https://github.com/ZhaoRibo"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZhaoRibo/TyporaMD.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZhaoRibo/TyporaMD/issues"
+  },
+  "homepage": "https://github.com/ZhaoRibo/TyporaMD#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
