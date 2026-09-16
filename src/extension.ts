@@ -131,6 +131,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const pendingFlips = new Map<string, NodeJS.Timeout>();
 
+  /** When one of our WYSIWYG tabs is closed, remember when (to detect "Reopen With…"). */
+  const closedWysiwygTabs = new Map<string, number>();
+
   function scheduleFlip(doc: vscode.TextDocument): void {
     if (!isMarkdownFile(doc) || !readConfig().autoOpen) {
       return;
@@ -169,10 +172,33 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 
   context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((doc) => scheduleFlip(doc)));
+
+  // Auto-open is tied to a document *being opened*, NOT to the active editor
+  // changing. Reacting to active-editor changes meant that picking another
+  // editor via "Reopen Editor With…" (which activates a text editor) was
+  // immediately overridden and the file flipped back to the WYSIWYG view,
+  // ignoring the user's explicit choice.
+  //
+  // Belt and braces: if our editor tab is closed and the same file reappears as
+  // a text tab right after, treat that as an explicit "view as source" choice.
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (editor && isMarkdownFile(editor.document)) {
-        scheduleFlip(editor.document);
+    vscode.window.tabGroups.onDidChangeTabs((e) => {
+      const now = Date.now();
+      for (const tab of e.closed) {
+        if (tab.input instanceof vscode.TabInputCustom && tab.input.viewType === VIEW_TYPE) {
+          closedWysiwygTabs.set(tab.input.uri.toString(), now);
+        }
+      }
+      for (const tab of e.opened) {
+        if (!(tab.input instanceof vscode.TabInputText)) {
+          continue;
+        }
+        const key = tab.input.uri.toString();
+        const closedAt = closedWysiwygTabs.get(key);
+        if (closedAt !== undefined && now - closedAt < 2000) {
+          closedWysiwygTabs.delete(key);
+          sourceModeUris.add(key);
+        }
       }
     })
   );

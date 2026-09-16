@@ -10,6 +10,7 @@
 
 > **状态：Beta 预发布（`0.1.0-beta.1`）** —— 核心功能已可用，欢迎试用与反馈。
 > 快速安装：到 [Releases](https://github.com/ZhaoRibo/TyporaMD/releases) 下载 `.vsix`（详见下文「安装」）。
+> **模式建议：请使用默认的 `wysiwyg` 模式（推荐）；`ir`（即时渲染）仍在开发中、不稳定。**
 
 ---
 
@@ -17,9 +18,9 @@
 
 - **同标签实时排版（Typora 风格）**
   - 通过 VS Code 的 `CustomTextEditor` 在同一标签页内编辑，不另开预览栏。
-  - 提供两种编辑形态（`typoraMd.mode` 配置，默认 `ir`）：
-    - `ir`（即时渲染，推荐）：内容即时排版，行内 Markdown 符号（`**`、`` ` ``、链接括号等）在非当前行自动隐藏，光标所在行才显示标记——最接近 Typora，也最稳定。
-    - `wysiwyg`（纯所见即所得）：编辑区几乎看不到 Markdown 源码符号。
+  - 提供两种编辑形态（`typoraMd.mode` 配置，**默认 `wysiwyg`**）：
+    - ✅ `wysiwyg`（**推荐**，默认，最接近 Typora）：输入先作为文本保留，Markdown 标记写完整（如 `> `）才转成结构，空行也不会被“吃掉”。
+    - ⚠️ `ir`（即时渲染，**实验性 / 开发中，不稳定**）：边输入边解析结构，标记除当前行外自动隐藏。已知问题：行首输入 `>` 会立即变成引用、空行没有任何可见标记、回车产生的空行不会写回文件。**不建议日常使用。**
   - 写入回同步：你在编辑区做的修改会以整个文档为粒度**自动回写到磁盘文件**（防抖、IME 中文输入安全），配合 `Cmd/Ctrl+S` 保存（或开启 `autoSave` 像 Typora 一样自动保存）。
 - **排版主题**
   - 文档区**铺满整个编辑器宽度**（不再有狭窄的两侧留白），阅读与书写更接近 Typora 的观感。
@@ -100,9 +101,15 @@ npm run watch          # 监听编译
    - 命令面板（`Cmd/Ctrl+Shift+P`）：
      - `Typora: Open Current File in WYSIWYG View` —— 当前文件切到 WYSIWYG 视图（快捷键 `Cmd/Ctrl+Shift+T`）；
      - `Typora: Reopen as Markdown Source` —— 切回普通源码编辑（此后该文件不会被自动打开成 WYSIWYG）。
+   - 用编辑器右上角的 **「重新打开编辑器的方式…」(Reopen Editor With…)** 选择其它编辑器后，插件会记住该文件，**不会**再自动切回 WYSIWYG。
 3. **主题切换**：命令面板 `Typora: Switch Editor Theme`（循环 Auto → Light → Dark），或改 `typoraMd.theme` 配置；颜色主题改变时明暗也会实时跟随。
 4. **插入图片**：直接**粘贴**剪贴板里的图片（截图等），扩展会自动把图片保存到文档旁的目录（默认 `media/`，可用 `typoraMd.imageDir` 修改），并在插入位置写入相对路径引用，例如 `![](media/image-20260915-153012.png)`。
 5. **保存**：编辑会自动回写文档（文档会显示“未保存”标记，属正常现象）；`Cmd/Ctrl+S` 保存到磁盘。若想完全像 Typora 自动保存，开启 `typoraMd.autoSave`。
+6. **Tab 键**（按光标位置）：
+   - **表格**内 → 跳到下一个单元格（`Shift+Tab` 上一格）
+   - **列表**行首 → 切换嵌套层级（`Shift+Tab` 反向；可连续多层）
+   - 其它位置（标题、引用、段落、代码块、行中 / 行末）→ 插入缩进空格
+   - 缩进空格数由 `typoraMd.tabSize` 控制（默认 `4`；`0` = 跟随 VS Code 的 `editor.tabSize`）
 
 ---
 
@@ -112,11 +119,12 @@ npm run watch          # 监听编译
 | 配置                   | 默认    | 说明                                          |
 | ---------------------- | ------- | --------------------------------------------- |
 | `typoraMd.autoOpen`    | `true`  | 打开 Markdown 文件时自动进入 WYSIWYG 视图     |
-| `typoraMd.mode`        | `ir`    | 编辑形态：`ir`（即时渲染，推荐）/ `wysiwyg`   |
+| `typoraMd.mode`        | `wysiwyg` | 编辑形态：`wysiwyg`（**推荐**）/ `ir`（即时渲染，实验性，不稳定） |
 | `typoraMd.theme`       | `auto`  | 编辑器主题：`auto` / `light` / `dark`         |
 | `typoraMd.codeTheme`   | `auto`  | 代码块高亮：`auto` / `github` / `github-dark` |
 | `typoraMd.showToolbar` | `true`  | 是否显示顶部格式工具栏                        |
 | `typoraMd.imageDir`    | `media` | 粘贴图片的保存目录（相对文档；`.` = 同目录）  |
+| `typoraMd.tabSize`     | `4`     | Tab 插入的空格数（`0` = 跟随 VS Code）        |
 | `typoraMd.autoSave`    | `false` | 每次回写后自动保存到磁盘                      |
 | `typoraMd.syncDelayMs` | `250`   | 回写到文件的防抖毫秒数                        |
 
@@ -145,7 +153,8 @@ TyporaMD/
 - 工具栏没有独立的“插入图片”按钮（Vditor 4 的 `image` 工具已失效，已移除）；但**直接粘贴图片即可**——会自动保存到 `typoraMd.imageDir`（默认 `media/`）并插入相对路径。
 - 仅支持**剪贴板图片**粘贴保存；暂不支持通过工具栏选择本地文件上传附件。
 - 图片保存目录名建议不含空格（含空格时 Markdown 链接可能需转义）。
-- `wysiwyg` 模式处于“可用但 IR 更成熟”的状态；默认 `ir` 体验最接近 Typora 且最稳定。
+- 默认 `wysiwyg` 模式最接近 Typora；`ir`（即时渲染）会把标记实时转成结构（例如行首输入 `>` 立刻变引用），若不习惯可留在 `wysiwyg`。
+- ⚠️ **`ir`（即时渲染）模式处于实验阶段、不稳定**（已知：行首 `>` 立即变引用、空行无可见标记、空行不写回文件），**推荐保持默认的 `wysiwyg`**。
 - 编辑区写入会以整个文档为单位规范化内容（例如统一行尾），与 Typora 行为一致；协作/多端同时修改时以最后一次写入为准。
 
 ---

@@ -48,6 +48,8 @@ export interface InitPayload {
   theme: ResolvedTheme;
   showToolbar: boolean;
   autoSave: boolean;
+  /** Spaces a Tab inserts. The host resolves "follow VS Code" to a number. */
+  tabSize: number;
 }
 
 /** A markdown link click resolved by the host so local paths can be opened. */
@@ -135,6 +137,16 @@ function decodeDataUrl(dataUrl: string): { mime: string; bytes: Uint8Array } {
     throw new Error('图片数据为空');
   }
   return { mime, bytes };
+}
+
+/** Spaces inserted by Tab; `typoraMd.tabSize: 0` means "follow VS Code's editor.tabSize". */
+function resolveTabSize(doc: vscode.TextDocument): number {
+  const configured = vscode.workspace.getConfiguration('typoraMd', doc.uri).get<number>('tabSize', 4);
+  if (configured && configured > 0) {
+    return configured;
+  }
+  const editorSize = vscode.workspace.getConfiguration('editor', doc.uri).get<number>('tabSize', 4);
+  return editorSize > 0 ? editorSize : 4;
 }
 
 export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
@@ -272,6 +284,7 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
         theme: resolveTheme(cfgNow.get<string>('theme', 'auto')),
         showToolbar: cfgNow.get<boolean>('showToolbar', true),
         autoSave: cfgNow.get<boolean>('autoSave', false),
+        tabSize: resolveTabSize(document),
       };
       post({ type: 'init', payload });
     };
@@ -414,7 +427,8 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e.affectsConfiguration('typoraMd')) {
+      // editor.tabSize matters too: typoraMd.tabSize = 0 follows it.
+      if (!e.affectsConfiguration('typoraMd') && !e.affectsConfiguration('editor.tabSize')) {
         return;
       }
       const cfgNow = vscode.workspace.getConfiguration('typoraMd');
@@ -422,6 +436,7 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
       const theme = resolveTheme(cfgNow.get<string>('theme', 'auto'));
       const showToolbar = cfgNow.get<boolean>('showToolbar', true);
       const autoSave = cfgNow.get<boolean>('autoSave', false);
+      const tabSize = resolveTabSize(document);
       const modeChanged = newMode !== currentMode;
       if (modeChanged) {
         currentMode = newMode;
@@ -431,7 +446,7 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
       // webview rebuilds in place for a mode change; other settings apply live.
       void (async () => {
         await applyPending();
-        post({ type: 'config', config: { mode: newMode, theme, showToolbar, autoSave } });
+        post({ type: 'config', config: { mode: newMode, theme, showToolbar, autoSave, tabSize } });
       })();
     });
 

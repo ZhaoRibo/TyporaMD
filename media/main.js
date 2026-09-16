@@ -79,7 +79,8 @@
     mode: 'ir',
     theme: { chromeTheme: 'classic', contentTheme: 'light', codeTheme: 'github', dark: false },
     showToolbar: true,
-    autoSave: false
+    autoSave: false,
+    tabSize: 4
   };
   var payload = {
     cdn: '',
@@ -208,6 +209,193 @@
     e.preventDefault();
     e.stopPropagation();
     vscode.postMessage({ type: 'openLink', href: href });
+  }
+
+  // ---- Tab key -------------------------------------------------------------
+  // Behaviour by caret position (Typora-like):
+  //   * table cell                 -> move to the next cell (Vditor native)
+  //   * list item at line start    -> change nesting level
+  //   * anywhere else              -> insert an indentation of spaces
+  // Notes:
+  //   - Headings and blockquotes deliberately get NO special behaviour: both
+  //     proved unreliable (heading markers desynced; blockquote indentation
+  //     produced stray quote lines), so they fall through to plain indentation.
+  //   - Never insert a real tab character: the Markdown engine treats it as a
+  //     code-block marker (it split a paragraph in testing).
+  //   - Always preventDefault(): the browser's default Tab moves focus away.
+  //   - We manipulate the DOM directly instead of using execCommand('indent'):
+  //     that turned lists into blockquotes, only worked one level deep and
+  //     inserted a line break for empty items.
+  //   - Do NOT dispatch a synthetic `input` event after DOM edits: Vditor then
+  //     re-renders and the caret jumps back to the start of the line.
+  /** Spaces inserted by Tab — from `typoraMd.tabSize` (`0` is resolved by the host). */
+  function indentText() {
+    var n = config.tabSize > 0 ? config.tabSize : 4;
+    return new Array(n + 1).join(' ');
+  }
+
+  function closestTag(el, tags) {
+    while (el && el !== editorHost) {
+      if (el.tagName && tags.indexOf(el.tagName) >= 0) { return el; }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  /** True when the caret is at the very start of `block` (no content before it). */
+  function caretAtLineStart(block) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) { return false; }
+    var range = sel.getRangeAt(0);
+    var pre = document.createRange();
+    pre.selectNodeContents(block);
+    try {
+      pre.setEnd(range.startContainer, range.startOffset);
+    } catch (err) {
+      return false;
+    }
+    var text = pre.toString()
+      .replace(/^[\s\u00a0]+/, '')
+      .replace(/^#{1,6}\s*/, '')
+      .replace(/^(?:[-*+]|\d+[.)])\s*/, '')
+      .replace(/^\[[ xX]\]\s*/, '')
+      .replace(/^[>\s]*/, '');
+    return text.length === 0;
+  }
+
+  /** Put the caret at the start of `node`, skipping IR marker elements. */
+  function placeCaretStartAt(node) {
+    var range = document.createRange();
+    var child = node.firstChild;
+    while (child && child.nodeType === 1 && child.classList &&
+      child.classList.contains('vditor-ir__marker')) {
+      child = child.nextSibling;
+    }
+    if (child) {
+      range.setStartBefore(child);
+    } else {
+      range.selectNodeContents(node);
+    }
+    range.collapse(true);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  /** Insert indentation at the caret (execCommand keeps Vditor's input in sync). */
+  function insertIndent() {
+    var inserted = false;
+    try {
+      inserted = document.execCommand('insertText', false, indentText());
+    } catch (err) {
+      inserted = false;
+    }
+    if (inserted) { return; }
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) { return; }
+    var range = sel.getRangeAt(0);
+    var node = document.createTextNode(indentText());
+    range.deleteContents();
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  /** Nest `li` into a sub-list of `targetLi`. */
+  function nestUnder(li, targetLi) {
+    var sub = null;
+    for (var i = 0; i < targetLi.children.length; i++) {
+      var child = targetLi.children[i];
+      if (child.tagName === 'UL' || child.tagName === 'OL') { sub = child; }
+    }
+    if (!sub) {
+      sub = document.createElement(li.parentElement.tagName.toLowerCase());
+      targetLi.appendChild(sub);
+    }
+    sub.appendChild(li);
+    return true;
+  }
+
+  /**
+   * Move a list item one level deeper.
+   * Normally the item nests under its previous sibling item. When it is the first
+   * item of its (sub-)list there is no sibling to nest under, so we indent the
+   * *parent* item instead — that carries this item along and lets nesting go past
+   * a single level. (Markdown cannot skip levels, so a top-level first item still
+   * has nowhere to go.)
+   */
+  function indentListItem(li) {
+    if (!li.parentElement) { return false; }
+    var prev = li.previousElementSibling;
+    while (prev && prev.tagName !== 'LI') { prev = prev.previousElementSibling; }
+    if (prev) {
+      return nestUnder(li, prev);
+    }
+    var list = li.parentElement;
+    var parentLi = list.parentElement && list.parentElement.tagName === 'LI' ? list.parentElement : null;
+    if (parentLi) {
+      return indentListItem(parentLi);
+    }
+    return false;
+  }
+
+  /** Move a list item one level up (out of its parent list item). */
+  function outdentListItem(li) {
+    var list = li.parentElement;
+    var parentLi = list && list.parentElement && list.parentElement.tagName === 'LI' ? list.parentElement : null;
+    if (!parentLi || !parentLi.parentElement) { return false; }
+    parentLi.parentElement.insertBefore(li, parentLi.nextElementSibling);
+    if (!list.children.length) { list.remove(); }
+    return true;
+  }
+
+  function onTabKeydown(e) {
+    if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) { return; }
+    if (!editorHost) { return; }
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) { return; }
+    var node = sel.anchorNode;
+    var el = node && node.nodeType === 3 ? node.parentElement : node;
+    if (!el || !editorHost.contains(el)) { return; }
+
+    // 1) Table: Vditor moves between cells on Tab natively — leave it alone.
+    if (closestTag(el, ['TABLE', 'TD', 'TH'])) {
+      return;
+    }
+
+    // 2) List item at the start of the line: change the nesting level.
+    var li = closestTag(el, ['LI']);
+    if (li && caretAtLineStart(li)) {
+      e.preventDefault();
+      e.stopPropagation();
+      var changed = e.shiftKey ? outdentListItem(li) : indentListItem(li);
+      if (changed) {
+        placeCaretStartAt(li);
+        console.log('[tab] list ' + (e.shiftKey ? 'outdent' : 'indent') + ' ok');
+      } else {
+        console.log('[tab] list ' + (e.shiftKey ? 'outdent' : 'indent') + ' skipped');
+      }
+      queueUpdate();
+      hideTip();
+      return;
+    }
+
+    // 3) Everything else — headings, quotes, plain text, code, mid-line, end of
+    //    line — insert indentation spaces (no focus jump, no special handling).
+    e.preventDefault();
+    e.stopPropagation();
+    insertIndent();
+    console.log('[tab] insert indent (' + indentText().length + ' spaces)');
+    queueUpdate();
+    hideTip();
+  }
+
+  function bindTabKey() {
+    if (!editorHost || editorHost.dataset.tpTab === '1') { return; }
+    editorHost.dataset.tpTab = '1';
+    editorHost.addEventListener('keydown', onTabKeydown, true);
   }
 
   // ---- paste image handling -----------------------------------------------
@@ -366,6 +554,7 @@
             startObserver();
             bindToolbarHelp();
             bindImagePaste();
+            bindTabKey();
           } catch (err) {
             console.error('[frontend] post-init step failed: ' + (err && err.message ? err.message : String(err)));
           }
@@ -514,6 +703,7 @@
         config.mode = payload.mode || config.mode;
         config.theme = payload.theme || config.theme;
         config.showToolbar = payload.showToolbar !== false;
+        if (typeof payload.tabSize === 'number' && payload.tabSize > 0) { config.tabSize = payload.tabSize; }
         state.inited = true;
         applyConfig();
         createEditor();
@@ -532,6 +722,7 @@
             console.log('[frontend] mode -> ' + config.mode + '; rebuilding in place');
           }
           if (msg.config.showToolbar !== undefined) { config.showToolbar = msg.config.showToolbar; }
+          if (typeof msg.config.tabSize === 'number' && msg.config.tabSize > 0) { config.tabSize = msg.config.tabSize; }
           if (msg.config.theme) { setTheme(msg.config.theme); }
           if (modeChanged) {
             rebuildEditor();

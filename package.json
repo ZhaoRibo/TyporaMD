@@ -140,12 +140,12 @@
         "typoraMd.mode": {
           "type": "string",
           "enum": [
-            "ir",
-            "wysiwyg"
+            "wysiwyg",
+            "ir"
           ],
-          "default": "ir",
-          "description": "Editing mode. 'ir' (instant rendering, recommended) hides Markdown markers unless the line is active; 'wysiwyg' always hides the source syntax.",
-          "markdownDescription": "Editing mode. `ir` (instant rendering, recommended — closest to Typora and most stable) renders content live and only shows Markdown markers for the active line. `wysiwyg` fully hides the Markdown syntax."
+          "default": "wysiwyg",
+          "description": "Editing mode. 'wysiwyg' (RECOMMENDED, default) keeps what you type as text until a Markdown construct is complete; 'ir' (instant rendering) is EXPERIMENTAL / unstable and not recommended for daily use.",
+          "markdownDescription": "编辑模式。`wysiwyg`（**推荐**，默认，最接近 Typora）：输入先作为文本保留，标记写完整才转成结构；`ir`（即时渲染，**实验性 / 开发中，不稳定**）：边输入边解析结构，不建议日常使用。"
         },
         "typoraMd.codeTheme": {
           "type": "string",
@@ -174,6 +174,14 @@
           "default": "media",
           "description": "Folder (relative to the markdown file) where images pasted into the editor are saved. Use \".\" to save them next to the markdown file.",
           "markdownDescription": "粘贴图片的保存目录（相对当前 Markdown 文件所在目录）。默认 `media`；填 `.` 表示与文档同目录。"
+        },
+        "typoraMd.tabSize": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 16,
+          "description": "Number of spaces inserted when pressing Tab. Default 4; set to 0 to follow VS Code's editor.tabSize.",
+          "markdownDescription": "按 `Tab` 插入的空格数。默认 `4`；设为 `0` 表示**跟随 VS Code** 的 `editor.tabSize` 设置。"
         },
         "typoraMd.syncDelayMs": {
           "type": "number",
