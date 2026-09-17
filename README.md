@@ -5,10 +5,10 @@
 在同一个标签页里直接排版、编辑、输入——不再需要像内置的 *Markdown Preview* 那样左右分栏预览，也不需要在“源码 ↔ 预览”之间来回切换。
 
 ![mode](https://img.shields.io/badge/mode-ir%20%2F%20wysiwyg-blue)
-![version](https://img.shields.io/badge/version-0.1.0--beta.2-orange)
+![version](https://img.shields.io/badge/version-0.1.0--beta.3-orange)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-> **状态：Beta 预发布（`0.1.0-beta.2`）** —— 核心功能已可用，欢迎试用与反馈。
+> **状态：Beta 预发布（`0.1.0-beta.3`）** —— 核心功能已可用，欢迎试用与反馈。
 > 快速安装：到 [Releases](https://github.com/ZhaoRibo/TyporaMD/releases) 下载 `.vsix`（详见下文「安装」）。
 > **模式建议：请使用默认的 `wysiwyg` 模式（推荐）；`ir`（即时渲染）仍在开发中、不稳定。**
 
@@ -59,18 +59,18 @@
 ### 方式一：下载发布包（推荐，普通用户）
 
 1. 打开本仓库的 [Releases](https://github.com/ZhaoRibo/TyporaMD/releases) 页面；
-2. 下载最新（预）发布里的 `typora-md-wysiwyg-0.1.0-beta.2.vsix`；
+2. 下载最新（预）发布里的 `typora-md-wysiwyg-0.1.0-beta.3.vsix`；
 3. VS Code 中：`扩展` 视图右上角 `...` → **从 VSIX 安装…** → 选择该文件；
 4. 若 VS Code 未自动重载，执行命令面板（`Cmd/Ctrl+Shift+P`）→ `Developer: Reload Window`。
 
-命令行安装（可选）：`code --install-extension typora-md-wysiwyg-0.1.0-beta.2.vsix`
+命令行安装（可选）：`code --install-extension typora-md-wysiwyg-0.1.0-beta.3.vsix`
 
 ### 方式二：从源码自行构建
 
 ```bash
 npm install
 npm run compile                      # 编译 TS -> out/
-npx vsce package --no-dependencies    # 生成 typora-md-wysiwyg-0.1.0-beta.2.vsix
+npx vsce package --no-dependencies    # 生成 typora-md-wysiwyg-0.1.0-beta.3.vsix
 ```
 
 再按上面的「从 VSIX 安装」步骤导入即可。构建需要 Node.js 18+ 与 VS Code ≥ 1.85。
@@ -110,6 +110,8 @@ npm run watch          # 监听编译
    - **列表**行首 → 切换嵌套层级（`Shift+Tab` 反向；可连续多层）
    - 其它位置（标题、引用、段落、代码块、行中 / 行末）→ 插入缩进空格
    - 缩进空格数由 `typoraMd.tabSize` 控制（默认 `4`；`0` = 跟随 VS Code 的 `editor.tabSize`）
+7. **插入表格**：点工具栏的表格按钮，在弹出的小网格里**滑动选择行列数**（最多 10 × 10），单击即插入。
+   在已有文字的段落里插入时表格会自动另起一行，不会把原来的文字并进表头。
 
 ---
 

@@ -553,6 +553,7 @@
             setToolbarVisibility(config.showToolbar);
             startObserver();
             bindToolbarHelp();
+            bindTablePicker();
             bindImagePaste();
             bindTabKey();
           } catch (err) {
@@ -678,6 +679,214 @@
       hideTip();
     });
     bar.addEventListener('mousedown', hideTip);
+  }
+
+  // ---- table size picker ---------------------------------------------------
+  // Vditor's stock table button drops a hard-coded 3x3 table. Typora asks for the
+  // size first, so we intercept the click (capture phase, before Vditor's own
+  // delegate sees it) and show a hover grid instead.
+  var TP_TABLE_MAX = 10;
+  var tablePickerEl = null;
+  var tableAnchor = null;
+  var savedRange = null;
+  var savedBlockEmpty = true;
+  var tableDocBound = false;
+
+  function tablePicker() {
+    if (tablePickerEl) { return tablePickerEl; }
+    var el = document.createElement('div');
+    el.id = 'tp-table-picker';
+    el.innerHTML = '<div class="tp-tp-head">插入表格</div>' +
+      '<div class="tp-tp-grid"></div>' +
+      '<div class="tp-tp-size">选择行列数</div>';
+    var grid = el.querySelector('.tp-tp-grid');
+    grid.style.gridTemplateColumns = 'repeat(' + TP_TABLE_MAX + ', 16px)';
+    for (var r = 1; r <= TP_TABLE_MAX; r++) {
+      for (var c = 1; c <= TP_TABLE_MAX; c++) {
+        var cell = document.createElement('span');
+        cell.className = 'tp-tp-cell';
+        cell.setAttribute('data-r', String(r));
+        cell.setAttribute('data-c', String(c));
+        grid.appendChild(cell);
+      }
+    }
+    grid.addEventListener('mouseover', function (e) {
+      var cell = e.target && e.target.closest ? e.target.closest('.tp-tp-cell') : null;
+      if (!cell) { return; }
+      markTablePicker(parseInt(cell.getAttribute('data-r'), 10), parseInt(cell.getAttribute('data-c'), 10));
+    });
+    grid.addEventListener('mouseleave', function () { markTablePicker(0, 0); });
+    grid.addEventListener('click', function (e) {
+      var cell = e.target && e.target.closest ? e.target.closest('.tp-tp-cell') : null;
+      if (!cell) { return; }
+      var rows = parseInt(cell.getAttribute('data-r'), 10);
+      var cols = parseInt(cell.getAttribute('data-c'), 10);
+      hideTablePicker();
+      insertTableMarkdown(rows, cols);
+    });
+    document.body.appendChild(el);
+    tablePickerEl = el;
+    return el;
+  }
+
+  // Light up every cell up to (rows, cols) and refresh the size caption.
+  function markTablePicker(rows, cols) {
+    if (!tablePickerEl) { return; }
+    var cells = tablePickerEl.querySelectorAll('.tp-tp-cell');
+    for (var i = 0; i < cells.length; i++) {
+      var on = rows > 0 &&
+        parseInt(cells[i].getAttribute('data-r'), 10) <= rows &&
+        parseInt(cells[i].getAttribute('data-c'), 10) <= cols;
+      if (on) { cells[i].classList.add('is-on'); }
+      else { cells[i].classList.remove('is-on'); }
+    }
+    var size = tablePickerEl.querySelector('.tp-tp-size');
+    if (size) {
+      size.textContent = rows > 0 ? rows + ' 行 × ' + cols + ' 列' : '选择行列数';
+    }
+  }
+
+  function showTablePicker(anchor) {
+    var el = tablePicker();
+    markTablePicker(0, 0);
+    el.style.display = 'block';
+    var rect = anchor.getBoundingClientRect();
+    var w = el.offsetWidth;
+    var h = el.offsetHeight;
+    var left = Math.max(6, Math.min(rect.left - 4, window.innerWidth - w - 6));
+    var top = rect.bottom + 8;
+    if (top + h > window.innerHeight - 6) { top = Math.max(6, rect.top - h - 8); }
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    tableAnchor = anchor;
+  }
+
+  function hideTablePicker() {
+    if (tablePickerEl) { tablePickerEl.style.display = 'none'; }
+    tableAnchor = null;
+  }
+
+  // True when the given node sits in a block with no visible text: a blank
+  // paragraph, an empty list item, and so on. Vditor pads empty blocks with a
+  // zero-width space, so that has to be stripped before deciding.
+  function blockIsEmpty(node) {
+    var block = node && node.nodeType === 1 ? node : (node ? node.parentNode : null);
+    var blocks = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE', 'DIV'];
+    while (block && block !== editorHost && blocks.indexOf(block.tagName) < 0) {
+      block = block.parentNode;
+    }
+    if (!block || block === editorHost) { return true; }
+    return (block.textContent || '').replace(/\u200b/g, '').trim() === '';
+  }
+
+  // Remember the caret before the picker takes focus away from the editor.
+  // A stale range would send the table somewhere the user never clicked, so the
+  // first thing we do is drop it and only re-arm it when the caret really is
+  // inside the editor.
+  function rememberCaret() {
+    savedRange = null;
+    savedBlockEmpty = true;
+    try {
+      var sel = window.getSelection();
+      if (!sel || !sel.rangeCount) { return; }
+      var range = sel.getRangeAt(0);
+      var node = range.startContainer;
+      var host = node && node.nodeType === 1 ? node : (node ? node.parentNode : null);
+      if (host && editorHost && editorHost.contains(host)) {
+        savedRange = range.cloneRange();
+        savedBlockEmpty = blockIsEmpty(node);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function appendBlock(md, content) {
+    try { vditor.setValue(content.replace(/\s*$/, '') + '\n\n' + md); } catch (_) { /* ignore */ }
+    queueUpdate();
+  }
+
+  function insertTableMarkdown(rows, cols) {
+    if (!vditor) { return; }
+    var head = '|';
+    var sep = '|';
+    for (var c = 0; c < cols; c++) { head += '  |'; sep += ' --- |'; }
+    var body = '';
+    for (var r = 1; r < rows; r++) {
+      body += '\n|';
+      for (var k = 0; k < cols; k++) { body += '  |'; }
+    }
+    // Mid-paragraph the table must start on a line of its own, otherwise the
+    // surrounding text gets swallowed into the first header cell (Typora does
+    // the same). In an already-empty block it goes in place.
+    var md = (savedBlockEmpty ? '' : '\n\n') + head + '\n' + sep + body + '\n';
+    var content = '';
+    try { content = vditor.getValue(); } catch (_) { /* ignore */ }
+    // No caret inside the editor (e.g. the button was clicked right after the
+    // document opened): append at the end instead of letting insertValue decide.
+    if (!savedRange) {
+      appendBlock(md.replace(/^\n+/, ''), content);
+      return;
+    }
+    try {
+      vditor.focus();
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+      vditor.insertValue(md);
+    } catch (err) {
+      console.error('[frontend] insert table failed: ' +
+        (err && err.message ? err.message : String(err)));
+    }
+    var after = '';
+    try { after = vditor.getValue(); } catch (_) { /* ignore */ }
+    if (after === content) { appendBlock(md.replace(/^\n+/, ''), content); return; }
+    queueUpdate();
+  }
+
+  // The toolbar can be re-created by Vditor (mode switches, re-renders), so the
+  // buttons are matched on Vditor's own `data-type` marker rather than on the
+  // labels we add for the tooltips.
+  function tableButtonOf(target) {
+    if (!target || !target.closest) { return null; }
+    return target.closest('[data-type="table"]') || target.closest('[data-tp-tool="table"]');
+  }
+
+  function bindTablePicker() {
+    if (!editorHost) { return; }
+    // Listen on the container, not on .vditor-toolbar: the toolbar element is
+    // replaced on rebuild (which used to drop the binding and make the button
+    // fall back to Vditor's fixed 3x3 insert).
+    if (editorHost.dataset.tpTableBound === '1') { return; }
+    editorHost.dataset.tpTableBound = '1';
+    // The caret must be captured on mousedown: by click time the editor has
+    // already lost focus and the selection is gone.
+    editorHost.addEventListener('mousedown', function (e) {
+      if (tableButtonOf(e.target)) { rememberCaret(); }
+    }, true);
+    // Capture phase + stopPropagation keeps Vditor's own handler (which inserts
+    // the hard-coded 3x3) from ever running.
+    editorHost.addEventListener('click', function (e) {
+      var item = tableButtonOf(e.target);
+      if (!item) { return; }
+      e.preventDefault();
+      e.stopPropagation();
+      hideTip();
+      if (tableAnchor === item) { hideTablePicker(); return; }  // click again = toggle off
+      showTablePicker(item);
+    }, true);
+    // Document-level listeners must survive toolbar rebuilds, so bind them once.
+    if (tableDocBound) { return; }
+    tableDocBound = true;
+    // Clicking elsewhere, or the window losing focus, dismisses the picker.
+    document.addEventListener('mousedown', function (e) {
+      if (!tablePickerEl || tablePickerEl.style.display !== 'block') { return; }
+      var t = e.target;
+      if (t && t.closest && (t.closest('#tp-table-picker') || tableButtonOf(t))) { return; }
+      hideTablePicker();
+    }, true);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { hideTablePicker(); }
+    });
+    window.addEventListener('blur', hideTablePicker);
   }
 
   function syncContent(content) {
