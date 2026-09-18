@@ -47,6 +47,12 @@ export interface InitPayload {
   mode: string;
   theme: ResolvedTheme;
   showToolbar: boolean;
+  /** Vditor's floating block panel (move up/down, delete, set anchor id). */
+  showBlockPanel: boolean;
+  /** Keys that jump out of a code block / blockquote, e.g. "shift+enter". */
+  exitBlockKeys: string;
+  /** Which block kinds "exitBlockKeys" applies to: "code,math" (optionally ",quote"). */
+  exitBlockScope: string;
   autoSave: boolean;
   /** Spaces a Tab inserts. The host resolves "follow VS Code" to a number. */
   tabSize: number;
@@ -241,7 +247,7 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
     const themeSetting = cfg.get<string>('theme', 'auto');
     const syncDelayMs = cfg.get<number>('syncDelayMs', 250);
     // Editing mode may be switched at runtime; switching reloads the webview.
-    let currentMode = cfg.get<string>('mode', 'ir');
+    let currentMode = cfg.get<string>('mode', 'wysiwyg');
 
     webview.options = {
       enableScripts: true,
@@ -280,9 +286,12 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
         cdn,
         docDirFs,
         docDirWebview,
-        mode: cfgNow.get<string>('mode', 'ir'),
+        mode: cfgNow.get<string>('mode', 'wysiwyg'),
         theme: resolveTheme(cfgNow.get<string>('theme', 'auto')),
         showToolbar: cfgNow.get<boolean>('showToolbar', true),
+        showBlockPanel: cfgNow.get<boolean>('showBlockPanel', false),
+        exitBlockKeys: cfgNow.get<string>('exitBlockKeys', 'ctrl+enter'),
+        exitBlockScope: cfgNow.get<string>('exitBlockScope', 'code,math'),
         autoSave: cfgNow.get<boolean>('autoSave', false),
         tabSize: resolveTabSize(document),
       };
@@ -432,9 +441,12 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
         return;
       }
       const cfgNow = vscode.workspace.getConfiguration('typoraMd');
-      const newMode = cfgNow.get<string>('mode', 'ir');
+      const newMode = cfgNow.get<string>('mode', 'wysiwyg');
       const theme = resolveTheme(cfgNow.get<string>('theme', 'auto'));
       const showToolbar = cfgNow.get<boolean>('showToolbar', true);
+      const showBlockPanel = cfgNow.get<boolean>('showBlockPanel', false);
+      const exitBlockKeys = cfgNow.get<string>('exitBlockKeys', 'ctrl+enter');
+      const exitBlockScope = cfgNow.get<string>('exitBlockScope', 'code,math');
       const autoSave = cfgNow.get<boolean>('autoSave', false);
       const tabSize = resolveTabSize(document);
       const modeChanged = newMode !== currentMode;
@@ -446,7 +458,7 @@ export class TyporaEditorProvider implements vscode.CustomTextEditorProvider {
       // webview rebuilds in place for a mode change; other settings apply live.
       void (async () => {
         await applyPending();
-        post({ type: 'config', config: { mode: newMode, theme, showToolbar, autoSave, tabSize } });
+        post({ type: 'config', config: { mode: newMode, theme, showToolbar, showBlockPanel, exitBlockKeys, exitBlockScope, autoSave, tabSize } });
       })();
     });
 

@@ -220,6 +220,28 @@ body.tp-no-toolbar .vditor-toolbar {
   display: none;
 }
 
+/* Vditor floats a .vditor-panel on hover: the block panel for ordinary blocks
+   (move up/down, delete, set anchor id) and for list items (just a delete
+   button), the table panel once the caret is inside a cell, and the image strip.
+   All are easy to trigger by accident, so they are off unless
+   typoraMd.showBlockPanel is enabled. Table actions and image info have
+   right-click menus instead — see media/main.js. Vditor's own toolbar dropdowns
+   use .vditor-panel too, so the table panel (which carries an insertRow button)
+   is explicitly excluded and the dropdowns carry no remove button. */
+body.tp-no-block-panel .vditor-panel:has(button[data-type="up"]),
+body.tp-no-block-panel .vditor-panel:has(button[data-type="remove"]):not(:has(button[data-type="insertRow"])) {
+  display: none !important;
+}
+
+/* The image editor rides on the same .vditor-panel: clicking an image shows a
+   strip with 图片地址 (src) / 替代文本 (alt) / 标题 (title) and a delete button.
+   Matched on its input placeholders so the toolbar dropdowns (which are also
+   .vditor-panel) keep working. Enable typoraMd.showBlockPanel to get it back. */
+body.tp-no-block-panel .vditor-panel:has(input[placeholder="替代文本"]),
+body.tp-no-block-panel .vditor-panel:has(input[placeholder="图片地址"]) {
+  display: none !important;
+}
+
 /* Cursor / selection inside the document. */
 .vditor .vditor-reset:focus {
   caret-color: var(--tp-caret);
@@ -304,6 +326,13 @@ body.tp-no-toolbar .vditor-toolbar {
 
 .vditor pre.vditor-reset p {
   margin: 0.9em 0;
+}
+
+/* A blank paragraph (what "exit the code block" creates, and what the author's
+   blank lines are restored into) must occupy a full line so it reads as an
+   empty line and is easy to aim at with the mouse. */
+.vditor .vditor-reset>p:has(> br:only-child) {
+  min-height: 1.8em;
 }
 
 .vditor pre.vditor-reset a {
@@ -496,11 +525,167 @@ body.tp-no-toolbar .vditor-toolbar {
   color: var(--tp-muted);
 }
 
-/* Vditor prints a "</>" badge in the left gutter of every code block. It sits
-   outside the text column and, inside a blockquote, collides with the quote
-   bar, so hide it — the fenced container already reads as a code block.
-   Scoped to code-block so the "$$" (math) and "F" (front matter) badges stay;
-   Vditor itself does the same at narrow widths. */
-.vditor .vditor-wysiwyg div.vditor-wysiwyg__block[data-type="code-block"]:before {
+/* Right-click menu — table cells and images (media/main.js). */
+#tp-ctx-menu {
+  position: fixed;
+  z-index: 1000003;
+  display: none;
+  box-sizing: border-box;
+  min-width: 196px;
+  padding: 4px;
+  border: 1px solid var(--tp-border);
+  border-radius: 6px;
+  background-color: var(--tp-paper);
+  color: var(--tp-text);
+  box-shadow: var(--tp-shadow);
+  font: 12px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#tp-ctx-menu .tp-cm-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#tp-ctx-menu .tp-cm-item:hover {
+  background-color: var(--tp-inline-bg);
+}
+
+#tp-ctx-menu .tp-cm-accel {
+  color: var(--tp-faint);
+  font-family: "SF Mono", "JetBrains Mono", Consolas, Menlo, monospace;
+  font-size: 11px;
+}
+
+#tp-ctx-menu .tp-cm-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background-color: var(--tp-border);
+}
+
+/* Image info dialog (地址 / 替代文本 / 标题), replaces Vditor's image strip. */
+:is(#tp-img-dialog, #tp-lang-dialog) {
+  position: fixed;
+  z-index: 1000004;
+  display: none;
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 32px));
+  padding: 12px 14px 10px;
+  border: 1px solid var(--tp-border);
+  border-radius: 8px;
+  background-color: var(--tp-paper);
+  color: var(--tp-text);
+  box-shadow: var(--tp-shadow);
+  font: 12px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-title {
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-row>span {
+  flex: 0 0 56px;
+  color: var(--tp-muted);
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid var(--tp-border);
+  border-radius: 4px;
+  background-color: var(--tp-code-block-bg);
+  color: var(--tp-text);
+  font: inherit;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-input:focus {
+  outline: none;
+  border-color: var(--tp-accent);
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-btn {
+  padding: 4px 14px;
+  border: 1px solid var(--tp-border);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--tp-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-btn:hover {
+  background-color: var(--tp-inline-bg);
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-btn--primary {
+  border-color: var(--tp-accent);
+  background-color: var(--tp-accent);
+  color: #ffffff;
+}
+
+:is(#tp-img-dialog, #tp-lang-dialog) .tp-dlg-btn--primary:hover {
+  background-color: var(--tp-accent);
+  opacity: 0.88;
+}
+
+/* Quick language chips in the code-language dialog. */
+#tp-lang-dialog .tp-cp-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+#tp-lang-dialog .tp-cp-chip {
+  padding: 1px 8px;
+  border: 1px solid var(--tp-border);
+  border-radius: 10px;
+  background-color: transparent;
+  color: var(--tp-muted);
+  font: 11px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  cursor: pointer;
+}
+
+#tp-lang-dialog .tp-cp-chip:hover {
+  border-color: var(--tp-accent);
+  background-color: var(--tp-inline-bg);
+  color: var(--tp-text);
+}
+
+/* Vditor prints a block-type badge in the left gutter of every block. Code
+   blocks get "</>", math blocks get "$$"; both sit outside the text column and,
+   inside a blockquote, collide with the quote bar. Hide those two — the styled
+   container already says what the block is. Scoped to code-block / math-block
+   so the "F" (front matter) badge is untouched; Vditor itself hides the whole
+   group at narrow widths. */
+.vditor .vditor-wysiwyg div.vditor-wysiwyg__block[data-type="code-block"]:before,
+.vditor .vditor-wysiwyg div.vditor-wysiwyg__block[data-type="math-block"]:before {
   content: none;
 }

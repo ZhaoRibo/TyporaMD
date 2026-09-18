@@ -144,8 +144,8 @@
             "ir"
           ],
           "default": "wysiwyg",
-          "description": "Editing mode. 'wysiwyg' (RECOMMENDED, default) keeps what you type as text until a Markdown construct is complete; 'ir' (instant rendering) is EXPERIMENTAL / unstable and not recommended for daily use.",
-          "markdownDescription": "编辑模式。`wysiwyg`（**推荐**，默认，最接近 Typora）：输入先作为文本保留，标记写完整才转成结构；`ir`（即时渲染，**实验性 / 开发中，不稳定**）：边输入边解析结构，不建议日常使用。"
+          "description": "Editing mode. 'wysiwyg' (RECOMMENDED, default): Markdown markers are hidden so you only see the rendered result - closest to Typora's default look. 'ir' (instant rendering): markers stay visible (dimmed) on every block.",
+          "markdownDescription": "编辑模式（区别在于 **Markdown 标记是否显示**）：\n- `wysiwyg`（所见即所得，**推荐 / 默认**）：标记**完全隐藏**，只看得到渲染结果 —— **日常观感最接近 Typora**（Typora 也只在光标所在那一块临时显示标记）。输入先作为文本保留，标记写完整（如 `> `）才转成结构。\n- `ir`（即时渲染）：**所有块**的标记都**保留可见**（淡化显示，如 `**`、`#`、`>`），内容实时渲染。\n\n本插件当前**默认 `wysiwyg`**：实测 `ir` 存在写回问题（行首 `>` 立即变引用、空行不写回文件），暂不作默认。"
         },
         "typoraMd.codeTheme": {
           "type": "string",
@@ -168,6 +168,22 @@
           "type": "boolean",
           "default": true,
           "description": "Show the compact formatting toolbar at the top of the WYSIWYG editor."
+        },
+        "typoraMd.showBlockPanel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show Vditor's floating block panel (move up/down, delete, set anchor id) that appears when the mouse nears the left gutter of a block.",
+          "markdownDescription": "悬停在标题、代码块等**左侧标记**时是否弹出块操作面板（上移 / 下移 / 删除 / 设置锚点 ID）。默认**关闭**（容易误触，且会与块标记、引用竖条叠在一起）。"
+        },
+        "typoraMd.exitBlockKeys": {
+          "type": "string",
+          "default": "ctrl+enter",
+          "markdownDescription": "在**代码块 / 公式块**内按哪些键**跳出**到块后新建一行（**Typora 用的是 `Cmd/Ctrl + Enter`**）。\n\n多个键用 `,` 分隔，修饰键用 `+` 连接：\n- `ctrl+enter`（默认，macOS 上就是 `Cmd + Enter`，两端通用）\n- `shift+enter`\n- `escape`\n- `cmd+enter`\n- `ctrl+enter,escape`（两个都行）\n- 留空 = 关闭，完全使用 Vditor 原生行为\n\n可用键名如 `enter` / `escape` / `tab`，修饰键 `shift` / `ctrl` / `cmd` / `meta` / `alt`。"
+        },
+        "typoraMd.exitBlockScope": {
+          "type": "string",
+          "default": "code,math",
+          "markdownDescription": "`typoraMd.exitBlockKeys` 对哪些块生效：\n- `code` —— 代码块（**默认启用**）\n- `math` —— 公式块（**默认启用**）\n- `quote` —— 引用块（默认**不启用**，保留 Vditor 原生行为）\n\n可组合如 `code,math`、`code,math,quote`；留空 = 都不生效。"
         },
         "typoraMd.imageDir": {
           "type": "string",
