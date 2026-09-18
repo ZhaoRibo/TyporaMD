@@ -495,3 +495,12 @@ body.tp-no-toolbar .vditor-toolbar {
   text-align: center;
   color: var(--tp-muted);
 }
+
+/* Vditor prints a "</>" badge in the left gutter of every code block. It sits
+   outside the text column and, inside a blockquote, collides with the quote
+   bar, so hide it — the fenced container already reads as a code block.
+   Scoped to code-block so the "$$" (math) and "F" (front matter) badges stay;
+   Vditor itself does the same at narrow widths. */
+.vditor .vditor-wysiwyg div.vditor-wysiwyg__block[data-type="code-block"]:before {
+  content: none;
+}
